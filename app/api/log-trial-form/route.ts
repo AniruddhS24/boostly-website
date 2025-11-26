@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      name, 
-      studioName, 
+    const {
+      name,
+      studioName,
       email,
       instagramHandle
     } = body;
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log to Supabase using the free_trial_requests table
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('free_trial_requests')
       .insert([
         {

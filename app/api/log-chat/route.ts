@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
+    const {
       message,
       userName
     } = body;
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log to Supabase using the flyer_messages table
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('flyer_messages')
       .insert([
         {
