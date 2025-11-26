@@ -29,13 +29,13 @@ export default function HomePage() {
             <div className="flex items-center justify-between">
               {/* Logo */}
               <div className="flex items-center gap-8">
-                <div className="flex items-center gap-2 h-7 overflow-hidden">
+                <Link href="/" className="flex items-center gap-2 h-7 overflow-hidden">
                   <img 
                     src="/BoostlyAI.png" 
                     alt="Boostly AI" 
                     className="h-8 w-auto object-contain object-center"
                   />
-                </div>
+                </Link>
                 
                 {/* Navigation Links - Desktop */}
                 <nav className="hidden md:flex items-center gap-6">
