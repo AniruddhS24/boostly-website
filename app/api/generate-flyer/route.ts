@@ -35,11 +35,17 @@ export async function POST(request: NextRequest) {
     // - Aspect ratio (9:16 for Instagram Stories)
     const fullPrompt = prompt;
 
-    // Generate image using Gemini
-    const response = await ai.models.generateContent({
+    // Generate image using Gemini with timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout: The flyer generation took too long. Please try again.')), 60000); // 60 second timeout
+    });
+
+    const generatePromise = ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: fullPrompt,
     });
+
+    const response = await Promise.race([generatePromise, timeoutPromise]) as any;
 
     // Extract image and text from response
     let imageData: string | null = null;
@@ -53,13 +59,26 @@ export async function POST(request: NextRequest) {
         } else if (part.inlineData && part.inlineData.data) {
           // Extract base64 image data
           imageData = part.inlineData.data;
-          console.log('Found image data! Length:', imageData.length);
+          if (imageData) {
+            console.log('Found image data! Length:', imageData.length);
+          }
         }
       }
     } else {
       throw new Error('No valid response from Gemini API');
     }
     
+    // Check if we got an image
+    if (!imageData) {
+      return NextResponse.json(
+        { 
+          error: 'No image generated',
+          details: 'The API did not return an image. Please try again.'
+        },
+        { status: 500 }
+      );
+    }
+
     // Return the generated flyer
     return NextResponse.json({
       success: true,
@@ -74,10 +93,21 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error generating flyer:', error);
     
+    // Handle timeout errors specifically
+    if (error.message?.includes('timeout') || error.code === 'ETIMEDOUT' || error.message?.includes('Request timeout')) {
+      return NextResponse.json(
+        { 
+          error: 'Request timeout',
+          details: 'The flyer generation took too long. Please try again with a simpler description or check your internet connection.'
+        },
+        { status: 504 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         error: 'Failed to generate flyer content',
-        details: error.message 
+        details: error.message || 'An unexpected error occurred'
       },
       { status: 500 }
     );

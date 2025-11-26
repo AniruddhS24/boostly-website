@@ -120,8 +120,8 @@ export default function HomePage() {
               </h1>
               
               {/* Sub-headline */}
-              <p className="text-xl sm:text-2xl text-gray-600 mb-10 leading-relaxed">
-                Automated social posts, graphics, and local SEO.
+              <p className="text-lg sm:text-xl text-black mb-10 leading-relaxed">
+              Reach more customers through consistent posts, graphics, and SEO.
               </p>
               
               {/* CTAs */}

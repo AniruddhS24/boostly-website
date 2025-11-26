@@ -22,6 +22,7 @@ export default function TrialPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [flyerGenerated, setFlyerGenerated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // New flyer parameters
   const [mainTitle, setMainTitle] = useState('');
@@ -75,6 +76,9 @@ export default function TrialPage() {
   const handleSendMessage = async () => {
     // Validate that at least main title is provided
     if (!mainTitle.trim() || isLoading) return;
+    
+    // Clear any previous errors
+    setError(null);
 
     // Build a structured prompt with the new parameters
     const userMessage = `
@@ -95,16 +99,23 @@ ${featureList ? `- Feature List: ${featureList}` : ''}
 ${dateTime ? `- Date & Time: ${dateTime}` : ''}
 
 COLORS:
-${primaryColor ? `- Primary Color: ${primaryColor}` : '- Primary Color: Pastel Pink'}
+${primaryColor ? `- Primary Color: ${primaryColor}` : '- Primary Color: Pastel Blue'}
 ${secondaryColor ? `- Secondary Color: ${secondaryColor}` : '- Secondary Color: Navy'}
 ${additionalInfo ? `\nADDITIONAL DETAILS:\n${additionalInfo}` : ''}
 
+***CRITICAL HALLUCINATION PREVENTION INSTRUCTION:***
+**DO NOT generate ANY actual or fake contact information (numbers, emails, addresses, websites).**
+
 Make the design eye-catching, professional, and suitable for any type of business (fitness, sports, food, real estate, salon, etc.).
-    `.trim();
+`.trim();
 
     setIsLoading(true);
 
     try {
+      // Create an AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 65000); // 65 second timeout (slightly longer than server)
+
       const response = await fetch('/api/generate-flyer', {
         method: 'POST',
         headers: {
@@ -114,8 +125,11 @@ Make the design eye-catching, professional, and suitable for any type of busines
           prompt: userMessage,
           businessName: formData.studioName || 'Your Business',
           eventDetails: ''
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -129,8 +143,11 @@ Make the design eye-catching, professional, and suitable for any type of busines
             flyerData: data.data
           };
           
-          setMessages(prev => [...prev, assistantMessage]);
+          setIsLoading(false);
+          // Replace all previous messages with the successful flyer
+          setMessages([assistantMessage]);
           setFlyerGenerated(true);
+          setError(null); // Clear any previous errors
 
           // Log to Supabase
           try {
@@ -163,6 +180,7 @@ ${data.data.bulletPoints?.map((point: string) => `• ${point}`).join('\n') || '
 ${data.data.additionalDetails || ''}
           `.trim();
 
+          setIsLoading(false);
           setMessages(prev => [...prev, {
             role: 'assistant',
             content: flyerContent,
@@ -186,19 +204,19 @@ ${data.data.additionalDetails || ''}
           }
         }
       } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: 'Sorry, I encountered an error generating your flyer. Please try again with a different description.'
-        }]);
+        setIsLoading(false);
+        setError('Sorry, I encountered an error generating your flyer. Please try again with a different description.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating flyer:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Sorry, something went wrong. Please make sure your API key is configured and try again.'
-      }]);
-    } finally {
       setIsLoading(false);
+      
+      // Handle timeout/abort errors
+      if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+        setError('The request took too long. Please try again with a simpler description.');
+      } else {
+        setError('Sorry, something went wrong. Please make sure your API key is configured and try again.');
+      }
     }
   };
 
@@ -320,11 +338,8 @@ ${data.data.additionalDetails || ''}
           {/* Page Title */}
           <div className="text-center mb-12">
             <h1 className="font-heading font-bold text-4xl md:text-5xl text-gray-900 mb-3">
-              Start Your Free Trial
+              Get Started - No Card Required
             </h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              No credit card. We'll reach out to set everything up for your business.
-            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -340,11 +355,42 @@ ${data.data.additionalDetails || ''}
                 </p>
               </div>
 
+              {/* Loading Animation */}
+              {isLoading && messages.length === 0 && !error && (
+                <div className="px-6 py-8 bg-white flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-sm text-gray-900">Generating your flyer...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Screen */}
+              {error && messages.length === 0 && !isLoading && (
+                <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white">
+                  <div className="text-center max-w-md">
+                    <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                      <svg className="w-full h-full text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Generating Flyer</h3>
+                    <p className="text-sm text-gray-600 mb-6">{error}</p>
+                    <button
+                      onClick={() => setError(null)}
+                      className="px-6 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors font-medium"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Chat Area */}
-              <div className={`${messages.length > 0 ? 'flex-1 overflow-hidden bg-gray-50/30' : 'flex-none'} ${flyerGenerated ? 'p-2' : messages.length > 0 ? 'p-6' : ''}`}>
+              <div className="flex-1 overflow-hidden relative">
                 {messages.length > 0 && (
-                  <div className={`${flyerGenerated ? 'h-full flex items-center justify-center' : 'space-y-4'}`}>
-                    {messages.map((message, index) => (
+                  <div className={`h-full bg-gray-50/30 ${flyerGenerated ? 'p-2 flex items-center justify-center' : 'p-6 space-y-4 overflow-y-auto'}`}>
+                    {messages.filter(message => flyerGenerated ? message.image : true).map((message, index) => (
                       <div
                         key={index}
                         className={`flex ${message.role === 'user' ? 'justify-end' : flyerGenerated ? 'justify-center' : 'justify-start'} ${flyerGenerated ? 'h-full w-full' : ''}`}
@@ -371,7 +417,7 @@ ${data.data.additionalDetails || ''}
                               {flyerGenerated && (
                                 <button
                                   onClick={() => downloadImage(message.image!, `boostly-flyer-${Date.now()}.png`)}
-                                  className="mt-3 mb-6 px-6 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors font-medium flex items-center justify-center gap-2"
+                                  className="mt-3 mb-12 px-6 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors font-medium flex items-center justify-center gap-2"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -404,14 +450,12 @@ ${data.data.additionalDetails || ''}
                         </div>
                       </div>
                     ))}
-                    {isLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-white text-gray-900 rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-primary-500 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                            <span className="text-sm text-gray-500 ml-2">Generating your flyer...</span>
+                    {isLoading && !flyerGenerated && (
+                      <div className="flex justify-center items-center py-8">
+                        <div className="bg-white text-gray-900 rounded-2xl px-6 py-5 shadow-sm border border-gray-100">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+                            <span className="text-sm font-medium text-gray-700">Generating your flyer...</span>
                           </div>
                         </div>
                       </div>
@@ -421,7 +465,7 @@ ${data.data.additionalDetails || ''}
               </div>
 
               {/* Chat Input */}
-              {!flyerGenerated && (
+              {!flyerGenerated && !isLoading && !error && (
               <div className="bg-white flex-shrink-0">
                   <div className={`px-6 ${messages.length > 0 ? 'pt-2' : 'pt-7'} pb-8 md:pb-5 space-y-3`}>
                     {/* Content Section */}
@@ -482,7 +526,7 @@ ${data.data.additionalDetails || ''}
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">Primary Color</label>
                           <input
                             type="text"
-                            placeholder="Pastel Pink or #FFB6C1"
+                            placeholder="Pastel Blue or #A8D5E2"
                             value={primaryColor}
                             onChange={(e) => setPrimaryColor(e.target.value)}
                             disabled={isLoading}
