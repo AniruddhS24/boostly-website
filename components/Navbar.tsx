@@ -43,7 +43,7 @@ export default function Navbar() {
               Login
             </button>
             <button className="px-5 py-2 bg-gray-900 text-white rounded-lg font-normal hover:bg-gray-800 transition-all duration-200">
-              Try free
+              Try Free
             </button>
           </div>
 
@@ -84,7 +84,7 @@ export default function Navbar() {
                   Login
                 </button>
                 <button className="px-5 py-2 bg-gray-900 text-white rounded-lg font-medium">
-                  Try free
+                  Try Free
                 </button>
               </div>
             </div>

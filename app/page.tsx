@@ -127,7 +127,7 @@ export default function HomePage() {
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center xl:items-start gap-4 mb-12">
                 <Link href="/trial" className="px-8 py-4 bg-primary-500 text-white rounded-xl font-semibold text-lg hover:bg-primary-600 transition-colors shadow-lg hover:shadow-xl">
-                  Try free
+                  Try Free
                 </Link>
                 <a 
                   href="https://calendly.com/founders-pharmie/marketing-consultation"
